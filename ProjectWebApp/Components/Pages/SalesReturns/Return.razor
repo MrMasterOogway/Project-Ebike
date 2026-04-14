@@ -1,0 +1,133 @@
+﻿@page "/Returns"
+@using SalesReturnsSystem.BLL;
+@using SalesReturnsSystem.ViewModels;
+@inject AuthenticationStateProvider AuthenticationStateProvider;
+
+<PageTitle>Customers</PageTitle>
+<MudText Typo="Typo.h3">eBikes Return</MudText>
+
+<AuthorizeView Roles="Shop Manager">
+    <NotAuthorized>
+        <p>You do not have access to this content.</p>
+    </NotAuthorized>
+    <Authorized>
+        <MudContainer>
+            @if (hasError)
+            {
+                <MudAlert Elevation="2"
+                Severity="Severity.Error"
+                Dense="true">
+                    <MudText Typo="Typo.h6">@errorMessage</MudText>
+                    @foreach (var error in errorDetails)
+                    {
+                        <MudText Typo="Typo.body2">@error</MudText>
+                    }
+                </MudAlert>
+            }
+            @if (hasFeedback)
+            {
+                <MudAlert Elevation="2"
+                Severity="Severity.Info"
+                Dense="true">
+                    <MudText Typo="Typo.body2">@feedbackMessage</MudText>
+                </MudAlert>
+            }
+
+            <MudPaper Elevation="4" Class="pa-3 mt-2">
+                <MudStack Row="true" Spacing="4" AlignItems="AlignItems.Center">
+                    <MudText Typo="Typo.h5">Customer Lookup</MudText>
+                    <MudTextField @bind-Value="saleInvoiceNum"
+                    Label="Sale Invoice #"
+                    Variant="Variant.Outlined" />
+                    <MudButton Variant="Variant.Filled"
+                    Color="Color.Primary"
+                    OnClick="Search">
+                        Search
+                    </MudButton>
+                    <MudButton Variant="Variant.Filled"
+                    Color="Color.Primary"
+                    OnClick="Clear">
+                        Clear
+                    </MudButton>
+                </MudStack>
+            </MudPaper>
+            
+                @if (currentSale != null)
+                {
+                    <MudPaper Elevation="4" Class="pa-3 mt-2">
+                        <MudPaper Elevation="4" Class="pa-3 mt-2">
+
+                            <MudText Typo="Typo.h6">Sale Information</MudText>
+                            <MudText Typo="Typo.body2">Sale Invoice #: @currentSale.SaleID</MudText>
+                            <MudText Typo="Typo.body2">Customer: @currentSale.CustomerName</MudText>
+                            <MudText Typo="Typo.body2">Date: @currentSale.SaleDate</MudText>
+                            @if (@currentSale.Discount == null)
+                            {
+                                <MudText Typo="Typo.body2">Discount %: 0%</MudText>
+                            }
+                            @if (currentSale.Discount != null)
+                            {
+                                <MudText Typo="Typo.body2">Discount %: @currentSale.Discount%</MudText>
+                            }
+                            @if (currentSale.PaymentType == "C")
+                            {
+                                <MudText Typo="Typo.body2">Payment Method: Credit</MudText>
+                            }
+                            @if (currentSale.PaymentType == "M")
+                            {
+                                <MudText Typo="Typo.body2">Payment Method: Cash</MudText>
+                            }
+                            @if (currentSale.PaymentType == "D")
+                            {
+                                <MudText Typo="Typo.body2">Payment Method: Debit</MudText>
+                            }
+                        </MudPaper>
+
+                        <MudDataGrid Items="currentSale.SaleDetails"
+                                     Striped="true"
+                                     FixedFooter="true"
+                                     FixedHeader="true"
+                                     Height="23vh">
+                            <Columns>
+                                <PropertyColumn Property="x => x.PartDescription" Title="Part Name" />
+                                <PropertyColumn Property="x => x.Quantity" Title="Org Qty" />
+                                <PropertyColumn Property="x => x.ReturnedQuantity" Title="Returned" />
+                                <PropertyColumn Property="x => x.SellingPrice" Title="Price" />
+                                <PropertyColumn Property="x => x.Refundable" Title="Refundable" />
+                                <TemplateColumn>
+                                    <CellTemplate Context="cellcontext">
+                                        <MudStack Row="true" Spacing="4">
+                                            <MudNumericField T="int"
+                                                             Label="Quantity"
+                                                             Value="cellcontext.Item.ReturnQuantity"
+                                                             Variant="Variant.Outlined"
+                                                             Min="0"
+                                                             Max="@(cellcontext.Item.Quantity - cellcontext.Item.ReturnedQuantity)"
+                                                             Immediate="true"
+                                                             ValueChanged="@(newQuantity => OnQuantityChanged(cellcontext.Item, newQuantity))" />
+                                            <MudTextField @bind-Value="cellcontext.Item.Reason"
+                                                          Variant="Variant.Outlined"
+                                                          Class="mt-2">
+                                            </MudTextField>
+                                        </MudStack>
+                                    </CellTemplate>
+                                </TemplateColumn>
+                            </Columns>
+                        </MudDataGrid>
+                        <MudText Typo="Typo.body2">SubTotal: @SubTotal.ToString("C") Tax: @Tax.ToString("C") Total: @Total.ToString("C")</MudText>
+                    </MudPaper>
+                }
+            
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       OnClick="Clear">
+                Clear
+            </MudButton>
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       OnClick="ProcessReturn">
+                Process Return
+            </MudButton>
+        </MudContainer>
+    </Authorized>
+</AuthorizeView>

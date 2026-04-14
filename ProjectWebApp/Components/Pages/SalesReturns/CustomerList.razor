@@ -1,0 +1,236 @@
+﻿@page "/SalesReturns"
+@using SalesReturnsSystem.BLL;
+@using SalesReturnsSystem.ViewModels;
+@inject AuthenticationStateProvider AuthenticationStateProvider;
+
+<PageTitle>Customers</PageTitle>
+<MudText Typo="Typo.h3">eBikes Sale</MudText>
+<AuthorizeView Roles="Shop Manager, Salesperson">
+    <NotAuthorized>
+        <p>You do not have access to this content.</p>
+    </NotAuthorized>
+    <Authorized>
+        <MudContainer>
+            @if (hasError)
+            {
+                <MudAlert Elevation="2"
+                Severity="Severity.Error"
+                Dense="true">
+                    <MudText Typo="Typo.h6">@errorMessage</MudText>
+                    @foreach (var error in errorDetails)
+                    {
+                        <MudText Typo="Typo.body2">@error</MudText>
+                    }
+                </MudAlert>
+            }
+            @if (hasFeedback)
+            {
+                <MudAlert Elevation="2"
+                Severity="Severity.Info"
+                Dense="true">
+                    <MudText Typo="Typo.body2">@feedbackMessage</MudText>
+                </MudAlert>
+            }
+
+            <MudPaper Elevation="4" Class="pa-3 mt-2">
+                <MudStack Row="true" Spacing="4" AlignItems="AlignItems.Center">
+                    <MudText Typo="Typo.h5">Customer Lookup</MudText>
+                    <MudTextField @bind-Value="phoneNumber"
+                    Label="Phone Number (Partial)"
+                    Variant="Variant.Outlined" />
+                    <MudButton Variant="Variant.Filled"
+                    Color="Color.Primary"
+                    OnClick="Search">
+                        Search
+                    </MudButton>
+                    <MudButton Variant="Variant.Filled"
+                    Color="Color.Primary"
+                    OnClick="Clear">
+                        Clear
+                    </MudButton>
+                </MudStack>
+                @if (Customers.Count > 0)
+                {
+                    <MudDataGrid Items="Customers"
+                    Striped="true"
+                    FixedFooter="true"
+                    FixedHeader="true"
+                    Height="23vh">
+                        <Columns>
+                            <PropertyColumn Property="x => x.FirstName + ' ' + x.LastName" Title="Customer Name" />
+                            <PropertyColumn Property="x => x.ContactPhone" Title="Phone Number" />
+                            <PropertyColumn Property="x => x.Address + ' ' + x.City + ',' + ' ' + x.Province + ' ' + x.PostalCode" Title="Address" />
+                            <TemplateColumn>
+                                <CellTemplate Context="cellcontext">
+                                    <MudButton Variant="Variant.Filled"
+                                    Color="Color.Primary"
+                                    OnClick="() => Display(cellcontext.Item)">
+                                        Select
+                                    </MudButton>
+                                </CellTemplate>
+                            </TemplateColumn>
+                        </Columns>
+                        <NoRecordsContent>
+                            <MudText Typo="Typo.h6">
+                                @((noRecords ? "No customers found."
+                                : "Please search for customers."))
+                            </MudText>
+                        </NoRecordsContent>
+                        <PagerContent>
+                            <MudDataGridPager />
+                        </PagerContent>
+                    </MudDataGrid>
+                }
+            </MudPaper>
+        </MudContainer>
+
+        <MudContainer>
+            <MudPaper Elevation="4" Class="pa-3 mt-2">
+                @if (selectedCustomer != null)
+                {
+                    <MudPaper Elevation="4" Class="pa-3">
+                        <MudText Typo="Typo.h5">Customer Details</MudText>
+                        <MudText>Name: @selectedCustomer.FirstName @selectedCustomer.LastName</MudText>
+                        <MudText>Phone: @selectedCustomer.ContactPhone</MudText>
+                        <MudText>Address: @selectedCustomer.Address @selectedCustomer.City, @selectedCustomer.Province @selectedCustomer.PostalCode</MudText>
+                    </MudPaper>
+                }
+                @if (selectedCustomer == null)
+                {
+                    <MudPaper Elevation="4" Class="pa-3">
+                        <MudText Typo="Typo.h5">Customer Details</MudText>
+                        <MudText>Name: Phone: Address:</MudText>
+                    </MudPaper>
+                }
+                <MudDataGrid Items="Parts"
+                Striped="true"
+                FixedFooter="true"
+                FixedHeader="true">
+                    <Columns>
+                        <MudGrid Class="mt-1" Justify="Justify.SpaceBetween">
+                            <MudItem xs="3">
+                                <MudSelect T="CategoryView" Label="Category" Variant="Variant.Outlined" Value="StoredCategory" ValueChanged="PopulateParts">
+                                    @foreach (CategoryView category in Category)
+                                    {
+                                        <MudSelectItem Value="category">@category.Description</MudSelectItem>
+                                    }
+                                </MudSelect>
+                            </MudItem>
+                            <MudItem xs="3">
+                                <MudSelect T="PartView" Label="Part" @bind-Value="StoredPart" Variant="Variant.Outlined">
+                                    @foreach (PartView part in Parts)
+                                    {
+                                        <MudSelectItem Value="part">@part.Description (@part.QuantityOnHand)</MudSelectItem>
+                                    }
+                                </MudSelect>
+                            </MudItem>
+                            <MudItem xs="3">
+                                <MudNumericField T="int" Class="mt-2" Label="Quantity" @bind-Value="WantedQuantity" Variant="Variant.Outlined" Min="0" Max="@(StoredPart?.QuantityOnHand ?? 0)" />
+                            </MudItem>
+                            <MudItem Class="mt-4" xs="2">
+                                <MudButton Variant="Variant.Filled"
+                                Color="Color.Primary"
+                                OnClick="SearchParts">
+                                    + Add Part
+                                </MudButton>
+                            </MudItem>
+                            <MudItem Class="mt-4" xs="1">
+                                <MudButton Variant="Variant.Filled"
+                                Color="Color.Primary"
+                                onclick="ClearPartSearch">
+                                    Clear
+                                </MudButton>
+                            </MudItem>
+                        </MudGrid>
+                    </Columns>
+                </MudDataGrid>
+                <MudDataGrid Items="tempSaleDetails"
+                Striped
+                Dense
+                Class="mt-2"
+                FixedFooter="true"
+                FixedHeader="true"
+                Height="23vh">
+                    <Columns>
+                        <PropertyColumn Property="x => x.PartDescription" Title="Part" />
+                        <PropertyColumn Property="x => x.SellingPrice" Title="Price" />
+                        <PropertyColumn Property="x => x.Quantity" Title="Quantity" />
+                        <PropertyColumn Property="x => x.Quantity * x.SellingPrice" Title="Ext Price" />
+                        <TemplateColumn>
+                            <CellTemplate Context="cellcontext">
+                                <MudIconButton Icon="@Icons.Material.Filled.Delete" aria-label="delete" OnClick="@(() => DeletePart(cellcontext.Item.PartID))" />
+                            </CellTemplate>
+                        </TemplateColumn>
+                    </Columns>
+                </MudDataGrid>
+                <MudText Typo="Typo.body2">SubTotal: @SubTotal.ToString("C") Tax: @Tax.ToString("C") Total: @Total.ToString("C")</MudText>
+            </MudPaper>
+        </MudContainer>
+
+        <MudContainer>
+            <MudPaper Class="pa-3 mt-2">
+                <MudText Typo="Typo.h6">Coupon</MudText>
+                @if (workingCoupon == false)
+                {
+                    <MudTextField @bind-Value="couponName" Label="Coupon" Variant="Variant.Outlined"> </MudTextField>
+                    <MudButton Variant="Variant.Filled"
+                    Color="Color.Primary"
+                    onclick="CheckCoupon">
+                        Verify
+                    </MudButton>
+                    <MudButton Variant="Variant.Filled"
+                    Color="Color.Primary"
+                    onclick="ClearCoupon">
+                        Clear Coupon
+                    </MudButton>
+                }
+                @if (workingCoupon == true) 
+                {
+                    <MudTextField @bind-Value="couponName" Label="Coupon" Variant="Variant.Outlined" Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.CheckCircle"> </MudTextField>
+                    <MudButton Variant="Variant.Filled"
+                    Color="Color.Primary"
+                    Disabled="true"
+                    onclick="CheckCoupon">
+                        Verify
+                    </MudButton>
+                    <MudButton Variant="Variant.Filled"
+                    Color="Color.Primary"
+                    onclick="ClearCoupon">
+                        Clear Coupon
+                    </MudButton>
+                }
+            </MudPaper>
+            <MudPaper MaxWidth="300px">
+                <MudText Typo="Typo.h6">Payment Type</MudText>
+                <MudRadioGroup @bind-Value="paymentType">
+                    <MudRadio Value="@("M")" Color="Color.Primary">Cash</MudRadio>
+                    <MudRadio Value="@("C")" Color="Color.Primary">Credit</MudRadio>
+                    <MudRadio Value="@("D")" Color="Color.Primary">Debit</MudRadio>
+                </MudRadioGroup>
+            </MudPaper>
+            <MudPaper>
+                <MudText Typo="Typo.h6">Total</MudText>
+                <MudText Typo="Typo.body2">Subtotal: @SubTotal.ToString("C")</MudText>
+                <MudText Typo="Typo.body2">Discount: @Discount.ToString("C")</MudText>
+                <MudText Typo="Typo.body2">Tax: @NewTax.ToString("C")</MudText>
+                <MudText Typo="Typo.body2">Total: @NewTotal.ToString("C")</MudText>
+            </MudPaper>
+            <MudButton Variant="Variant.Filled"
+            Color="Color.Primary"
+            onclick="Clear">
+                Cancel
+            </MudButton>
+            <MudButton Variant="Variant.Filled"
+            Color="Color.Primary"
+            onclick="CompleteSale">
+                Complete Sale
+            </MudButton>
+            <MudPaper>
+                @if (completeSale == true)
+                {
+                    <MudText Typo="Typo.h5">Sale ID: @sale.SaleID</MudText>
+                }
+            </MudPaper>
+        </MudContainer>
+    </Authorized>
+</AuthorizeView>

@@ -1,0 +1,253 @@
+﻿@page "/Purchasing"
+@inject AuthenticationStateProvider AuthenticationStateProvider;
+<PageTitle>Purchasing</PageTitle>
+
+<MudText Typo="Typo.h3" GutterBottom="true">EBikes Purchasing</MudText>
+<AuthorizeView>
+    <Authorized>
+        @if (hasError)
+        {
+            <MudAlert Elevation="2" Severity="Severity.Error" Dense="true">
+                <MudText Typo="Typo.h6">@errorMessage</MudText>
+                @foreach (var error in errorDetails)
+                {
+                    <MudText Typo="Typo.body1">@error</MudText>
+                }
+            </MudAlert>
+        }
+
+        @if (hasFeedback)
+        {
+            <MudAlert Elevation="2" Severity="Severity.Info" Dense="true">
+                <MudText Typo="Typo.body1">@feedbackMessage</MudText>
+            </MudAlert>
+        }
+        @if (!hasFeedback && !hasError)
+        {
+            <MudAlert Elevation="2" Severity="Severity.Normal" Dense="true">
+                <MudText Typo="Typo.body1"> Create a Purchase Order </MudText>
+            </MudAlert>
+        }
+
+        <MudContainer MaxWidth="MaxWidth.ExtraLarge">
+            <br />
+            <MudGrid Spacing="1" Justify="Justify.Center">
+                <MudItem xs="12" class="d-flex justify-center flex-grow-1 gap-4 ">
+                    <MudStack Style="width: 30%">
+                        <MudSelect @bind-Value="selectedVendor"
+                        Variant="Variant.Outlined"
+                        Label="Select a vendor">
+                            @foreach (var item in vendors)
+                            {
+                                <MudSelectItem T="int?" Value="@item.Key">@item.Value.VendorName,@item.Value.Address,@item.Value.Phone </MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudStack>
+
+                    <MudIconButton OnClick="SearchVendorGetInfo"
+                    Icon="@Icons.Material.Filled.Search"
+                    Color="Color.Primary"
+                    aria-label="search" />
+
+                    @if (AuthenticationStateProvider.GetAuthenticationStateAsync()
+                    .Result.User.Identity.IsAuthenticated
+
+                    && AuthenticationStateProvider.GetAuthenticationStateAsync()
+                    .Result.User.IsInRole("Shop Manager"))
+                    {
+                        <MudButton Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   OnClick="Save"
+                                   Disabled="@(!wasSearchButtonPressed || !disableSave)">
+                            @GetSaveUpdateText(currentPurchaseOrder)
+                        </MudButton>
+                        <MudButton Variant="Variant.Filled"
+                        Color="Color.Primary"
+                        Disabled="!wasSearchButtonPressed || currentPurchaseOrder.PurchaseOrderID == 0 || !disableSave || !disablePlace"
+                        OnClick="PlaceOrder">
+                            Place
+                        </MudButton>
+                        <MudButton Variant="Variant.Filled"
+                        Color="Color.Secondary"
+                        Disabled="!wasSearchButtonPressed || currentPurchaseOrder.PurchaseOrderID == 0 "
+                        OnClick="DeleteOrder">
+                            Delete
+                        </MudButton>
+                        <MudButton Variant="Variant.Filled"
+                        Color="Color.Primary"
+                        Disabled="!hasDataChanged"
+                        OnClick="ClearOrder">
+                            Clear
+                        </MudButton>  
+                    }
+                    @if (AuthenticationStateProvider.GetAuthenticationStateAsync()
+                    .Result.User.Identity.IsAuthenticated
+
+                    && AuthenticationStateProvider.GetAuthenticationStateAsync()
+                    .Result.User.IsInRole("Store Staff"))
+                    {
+                        <MudButton Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   OnClick="Save"
+                                   Disabled="@(!wasSearchButtonPressed || !disableSave)">
+                            @GetSaveUpdateText(currentPurchaseOrder)
+                        </MudButton>
+                        <MudButton Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   Disabled="true">
+                            Admin Required
+                        </MudButton>
+                    }
+                </MudItem>
+
+                <MudItem xs="8" Class="d-flex justify-center flex-grow-1 gap-4">
+                    @if (selectedVendor == null)
+                    {
+                        <MudItem xs="6">
+                            <MudPaper Class="justify-center mud-width-full py-8">
+                                <MudText Align="Align.Center">Vendor Name:</MudText>
+                                <MudText Align="Align.Center">Phone:</MudText>
+                                <MudText Align="Align.Center">Address:</MudText>
+                                <MudText Align="Align.Center">PO:</MudText>
+                            </MudPaper>
+                        </MudItem>
+                        <MudItem xs="6">
+                            <MudPaper Class="align-center justify-center mud-width-full py-8">
+                                <MudText Align="Align.Center">Summary</MudText>
+                                <MudText Align="Align.Center">Sub Total:</MudText>
+                                <MudText Align="Align.Center">GST:</MudText>
+                                <MudText Align="Align.Center">Total:</MudText>
+                            </MudPaper>
+                        </MudItem>
+                    }
+                    else if (wasSearchButtonPressed)
+                    {
+                        <MudItem xs="6">
+                            <MudPaper Class="justify-center mud-width-full py-8">
+                                @*TODO: display infobased on the selected vendor*@
+                                <MudText Align="Align.Center">Vendor Name: @SelectedVendorView.VendorName</MudText>
+                                <MudText Align="Align.Center">Phone: @SelectedVendorView.Phone</MudText>
+                                <MudText Align="Align.Center">Address: @SelectedVendorView.Address</MudText>
+                                <MudText Align="Align.Center">PO: @GetnewOrExistingPO(currentPurchaseOrder)</MudText>
+                            </MudPaper>
+                        </MudItem>
+                        <MudItem xs="6">
+                            <MudPaper Class="align-center justify-center mud-width-full py-8">
+                                <MudText Align="Align.Center">Summary</MudText>
+                                <MudText Align="Align.Center">
+                                    Sub Total: @currentPurchaseOrder.PurchaseOrderDetails.Sum(x => x.PurchasePrice * x.Quantity).ToString("C")
+                                </MudText>
+                                <MudText Align="Align.Center">
+                                    GST: @currentPurchaseOrder.PurchaseOrderDetails.Sum(x => (x.PurchasePrice * x.Quantity) * 0.05m).ToString("C")
+                                </MudText>
+                                <MudText Align="Align.Center">
+                                    Total: @currentPurchaseOrder.PurchaseOrderDetails.Sum(x => (x.PurchasePrice * x.Quantity) * 0.05m + (x.PurchasePrice * x.Quantity)).ToString("C")
+                                </MudText>
+                            </MudPaper>
+                        </MudItem>
+                    }
+                    else
+                    {
+                        <MudItem xs="6">
+                            <MudPaper Class="justify-center mud-width-full py-8">
+                                <MudText Align="Align.Center">Vendor Name: </MudText>
+                                <MudText Align="Align.Center">Phone:</MudText>
+                                <MudText Align="Align.Center">Address:</MudText>
+                                <MudText Align="Align.Center">PO:</MudText>
+                            </MudPaper>
+                        </MudItem>
+                        <MudItem xs="6">
+                            <MudPaper Class="align-center justify-center mud-width-full py-8">
+                                <MudText Align="Align.Center">Summary</MudText>
+                                <MudText Align="Align.Center">Sub Total:</MudText>
+                                <MudText Align="Align.Center">GST:</MudText>
+                                <MudText Align="Align.Center">Total:</MudText>
+                            </MudPaper>
+                        </MudItem>
+                    }
+
+                </MudItem>
+
+                @* Parts to order *@
+                <MudItem xs="10">
+                    <MudPaper Elevation="4" Class="pa-4">
+                        <h3>Purchase Order</h3>
+                        <MudTable Items="currentPurchaseOrder.PurchaseOrderDetails" Dense="true">
+                            <HeaderContent>
+                                <MudTh>PartsID</MudTh>
+                                <MudTh>Description</MudTh>
+                                <MudTh>QOH</MudTh>
+                                <MudTh>ROL</MudTh>
+                                <MudTh>QOO</MudTh>
+                                <MudTh>QTO</MudTh>
+                                <MudTh>Price</MudTh>
+                                <MudTh>Action</MudTh>
+                            </HeaderContent>
+                            <RowTemplate Context="item">
+                                <MudTd>@item.Part.PartsID</MudTd>
+                                <MudTd>@item.Part.Description</MudTd>
+                                <MudTd>@item.Part.QOH</MudTd>
+                                <MudTd>@item.Part.ROL</MudTd>
+                                <MudTd>@item.Part.QOO</MudTd>
+                                <MudTd>
+                                    <MudNumericField T="int"
+                                                     Value="item.Quantity"
+                                                     Min="0"
+                                                     Class="w-10"
+                                                     Immediate="true"
+                                                     ValueChanged="@(value => OnQuantityChanged(value, item))" />
+                                </MudTd>
+                                <MudTd>@((item.PurchasePrice * item.Quantity).ToString("C"))</MudTd>
+                                <MudTd>
+                                    <MudButton Color="Color.Error"
+                                               OnClick="() => RemovePartFromCart(item.Part.PartsID)">
+                                        <MudIcon Icon="@Icons.Material.Filled.RemoveShoppingCart" />
+                                    </MudButton>
+                                </MudTd>
+                            </RowTemplate>
+                        </MudTable>
+                    </MudPaper>
+                </MudItem>
+
+                @* parts list from vendor *@
+                <MudItem xs="10">
+                    <MudPaper Elevation="4" Class="pa-4">
+                        <h3>Available Inventory</h3>
+                        <MudTable Items="Inventory" Dense="true">
+                            <HeaderContent>
+                                <MudTh>PartsID</MudTh>
+                                <MudTh>Description</MudTh>
+                                <MudTh>QOH</MudTh>
+                                <MudTh>ROL</MudTh>
+                                <MudTh>QOO</MudTh>
+                                <MudTh>Buffer</MudTh>
+                                <MudTh>Price</MudTh>
+                                <MudTh>Action</MudTh>
+                            </HeaderContent>
+                            <RowTemplate Context="item">
+                                <MudTd>@item.PartsID</MudTd>
+                                <MudTd>@item.Description</MudTd>
+                                <MudTd>@item.QOH</MudTd>
+                                <MudTd>@item.ROL</MudTd>
+                                <MudTd>@item.QOO</MudTd>
+                                <MudTd>@item.QTO</MudTd>
+                                <MudTd>@item.PurchasePrice.ToString("C")</MudTd>
+                                <MudTd>
+                                    <MudButton Color="Color.Primary" OnClick="() => AddPartToCart(item.PartsID)">
+                                        <MudIcon Icon="@Icons.Material.Filled.AddShoppingCart" />
+                                    </MudButton>
+                                </MudTd>
+                            </RowTemplate>
+                        </MudTable>
+                    </MudPaper>
+                </MudItem>
+
+
+            </MudGrid>
+        </MudContainer>
+    </Authorized>
+    <NotAuthorized>
+        <p>You are not authorized to view this content.</p>
+    </NotAuthorized>
+</AuthorizeView>
+

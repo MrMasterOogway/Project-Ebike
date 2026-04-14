@@ -1,0 +1,65 @@
+﻿@implements IDisposable
+
+@inject NavigationManager NavigationManager
+
+<MudNavMenu>
+    <MudNavLink Href="" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Home">Home</MudNavLink>
+    <MudNavLink Href="Purchasing" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.List">Purchasing</MudNavLink>
+    <MudNavLink Href="Receiving" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.List">Receiving</MudNavLink>
+    <MudNavLink Href="SalesReturns" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.List">SalesReturns</MudNavLink>
+    <MudNavLink Href="Returns" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.List">Return</MudNavLink>
+    <MudNavLink Href="counter" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Add">Counter</MudNavLink>
+
+    <MudNavLink Href="weather" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.List">Weather</MudNavLink>
+
+    <MudNavLink Href="auth" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Lock">Auth Required</MudNavLink>
+    <AuthorizeView>
+        <Authorized>
+            <MudNavLink Href="Account/Manage" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Person">@(string.IsNullOrWhiteSpace(fullName) ? context.User.Identity?.Name : fullName)</MudNavLink>
+            <form action="Account/Logout" method="post">
+                <AntiforgeryToken />
+                <input type="hidden" name="ReturnUrl" value="@currentUrl" />
+                <button type="submit" class="mud-nav-link mud-ripple">
+                    <MudIcon Icon="@Icons.Material.Filled.Logout" Color="Color.Info" Class="mr-3"></MudIcon> Logout
+                </button>
+            </form>
+        </Authorized>
+        <NotAuthorized>
+            <MudNavLink Href="Account/Register" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Person">Register</MudNavLink>
+            <MudNavLink Href="Account/Login" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Password">Login</MudNavLink>
+        </NotAuthorized>
+    </AuthorizeView>
+
+</MudNavMenu>
+
+
+@code {
+    private string fullName = string.Empty;
+    private string? currentUrl;
+
+    [Inject]
+    protected AuthenticationStateProvider AuthStateProvider { get; set; } = default!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        currentUrl = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
+        NavigationManager.LocationChanged += OnLocationChanged;
+        //Get User's FullName
+        var state = await AuthStateProvider.GetAuthenticationStateAsync();
+        var claims = state.User.Claims.ToList();
+        fullName = claims.FirstOrDefault(c => c.Type.Equals("FullName", StringComparison.InvariantCultureIgnoreCase))?.Value ?? "";
+
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        currentUrl = NavigationManager.ToBaseRelativePath(e.Location);
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        NavigationManager.LocationChanged -= OnLocationChanged;
+    }
+}
+
